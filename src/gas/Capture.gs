@@ -142,16 +142,20 @@ function captureMedia(blob, kind) {
   note.text = text;
   if (SAVE_FILES) {
     try {
-      var it = DriveApp.getFoldersByName('第二大腦附件');
-      var folder = it.hasNext() ? it.next() : DriveApp.createFolder('第二大腦附件');
       var name = Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyyMMdd-HHmmss') + (kind === '錄音' ? '.m4a' : '.jpg');
-      note.link = folder.createFile(blob.setName(name)).getUrl();
+      note.link = attachFolder().createFile(blob.setName(name)).getUrl();
     } catch (err) {
       Logger.log('附件沒有存成功：' + err.message);
     }
   }
   saveNote(note);
   return note;
+}
+
+// ---- 雲端硬碟的「第二大腦附件」資料夾，沒有就建立 ----
+function attachFolder() {
+  var it = DriveApp.getFoldersByName('第二大腦附件');
+  return it.hasNext() ? it.next() : DriveApp.createFolder('第二大腦附件');
 }
 
 // ================= LINE =================
@@ -189,10 +193,13 @@ function handleEvent(ev) {
   if (m.type === 'text') return hello + handleText(m.text);
   if (m.type === 'image') return hello + savedMsg(captureMedia(lineContent(m.id), '照片'));
   if (m.type === 'audio') return hello + savedMsg(captureMedia(lineContent(m.id), '錄音'));
+  // 階段 6 完成後，影片和檔案也會存到雲端硬碟
+  if ((m.type === 'video' || m.type === 'file') && typeof saveAttachment === 'function') return hello + saveAttachment(m);
   return hello + '目前只收文字、網址、照片和語音訊息。';
 }
 
 // 文字訊息：開頭是「？」＝發問；開頭是「找」＝搜尋；其他＝存成筆記
+// 階段 6 完成後，行程、待辦、記帳的句子會先交給「秘書」處理
 function handleText(text) {
   text = String(text).trim();
   var q = text.match(/^[?？]\s*([\s\S]+)/);
@@ -210,7 +217,11 @@ function handleText(text) {
       return '#' + n.id + '【' + n.title + '】' + n.date + '\n' + n.summary;
     }).join('\n\n');
   }
-  return savedMsg(captureText(text));
+  if (typeof secretaryText === 'function') {
+    var done = secretaryText(text);   // 回傳空字串代表「這是筆記」
+    if (done) return done;
+  }
+  return savedMsg(captureText(text.replace(/^(?:筆記|記一下)\s*[:：\s]\s*/, '') || text));
 }
 
 function savedMsg(n) {
@@ -301,6 +312,7 @@ function explainError(e) {
   if (!e) return 'AI 這次沒有給出答案，請再試一次。';
   var tips = {
     400: '金鑰好像不對，或這個模型不接受這種內容。',
+    402: '這把金鑰的專案開了付費（預付制），但儲值金用完了。請到 AI Studio 建立一個沒有綁帳單的新專案、換一把新金鑰，或是去儲值。',
     403: '這把金鑰沒有權限，請到 AI Studio 重新建立。',
     404: '模型名稱已停用，請到「設定.gs」把 MODEL 換成新的名稱。',
     429: '免費額度用完了，或問得太快，請等一下再試。',

@@ -9,7 +9,7 @@ function ok(cond, name) { if (cond) pass++; else { fail++; console.log('  ✗ ' 
 
 function makeWorld() {
   const sheets = {}, order = [];
-  const props = {}, cache = {}, sent = { line: [], mail: [], triggers: [], files: [], gemini: [] };
+  const props = {}, cache = {}, sent = { line: [], mail: [], triggers: [], files: [], gemini: [], events: [] };
   function Sheet(name) {
     this.name = name; this.rows = [];
   }
@@ -49,6 +49,8 @@ function makeWorld() {
         if (world.geminiDown) return resp(503, { error: { code: 503, message: 'high demand' } });
         if ((opt.headers || {})['x-goog-api-key'] !== 'TESTKEY') return resp(400, { error: { code: 400, message: 'API key not valid' } });
         const parts = body.contents[0].parts, text = parts.map(p => p.text || '').join('');
+        const sys = body.system_instruction ? body.system_instruction.parts[0].text : '';
+        if (sys.includes('私人秘書')) return gen(world.plan ? world.plan(text) : '{"action":"note"}');
         if (parts.some(p => p.inline_data)) return gen(parts.find(p => p.inline_data).inline_data.mime_type.startsWith('audio') ? '今天帶長輩做音樂律動，大家很投入' : '手指操步驟：握拳、張開、對指');
         if (text.includes('只輸出一個 JSON')) {
           const content = text.split('內容：\n')[1] || '';
@@ -95,7 +97,12 @@ function makeWorld() {
       createFolder: () => ({ createFile(b) { sent.files.push(b.name); return { getUrl: () => 'https://drive.google.com/file/' + b.name }; } })
     },
     MailApp: { sendEmail(m) { sent.mail.push(m); } },
-    Session: { getEffectiveUser: () => ({ getEmail: () => 'me@example.com' }) },
+    Session: { getEffectiveUser: () => ({ getEmail: () => 'me@example.com' }), getScriptTimeZone: () => 'Asia/Taipei' },
+    CalendarApp: { getDefaultCalendar: () => ({
+      createEvent(title, start, end, opt) { sent.events.push({ title, start, end, opt }); },
+      createAllDayEvent(title, start, opt) { sent.events.push({ title, start, allDay: true, opt }); },
+      getEvents: (from, to) => sent.events.filter(e => e.start >= from && e.start < to).map(e => ({ getStartTime: () => e.start, isAllDayEvent: () => !!e.allDay, getTitle: () => e.title }))
+    }) },
     ScriptApp: {
       WeekDay: { SUNDAY: 'SUN' },
       getProjectTriggers: () => sent.triggers.slice(),
@@ -270,11 +277,131 @@ const compCall = w.sent.gemini.pop().body.contents[0].parts[0].text;
 ok(compCall.includes('60 分鐘') && compCall.includes('對象是志工') && compCall.includes('[#4]') && compCall.includes('待補'), '產出：帶入範本、補充要求、筆記內容與「不要自己編」');
 ok(w.sheets['產出'].rows.length === 2 && w.sheets['產出'].rows[1][2] === '#1 #4', '初稿存到「產出」工作表');
 
+console.log('階段 6：AI 秘書');
+const ALL = ['Capture', 'Web', 'Ask', 'Weekly', 'Compose', 'Secretary'];
+// 合併成同一個專案時，不同檔案不能有同名的函式或全域變數
+const seen = {}, clash = [];
+ALL.forEach(f => (fs.readFileSync(path.join(GAS, f + '.gs'), 'utf8').match(/^(?:function|var)\s+[\w$]+/gm) || []).forEach(d => {
+  const n = d.split(/\s+/)[1]; if (seen[n] && seen[n] !== f) clash.push(n + '（' + seen[n] + '、' + f + '）'); seen[n] = f; }));
+ok(clash.length === 0, '六個檔案之間沒有同名的函式或變數：' + clash.join('、'));
+ok(Object.keys(seen).filter(n => n === 'doPost' || n === 'doGet').length === 2, '整個專案只有一個 doPost 和一個 doGet');
+ok(!/GEMINI_API_KEY\s*=|LINE_TOKEN\s*=|ALLOWED_USERS|SpreadsheetApp\.create|openById/.test(fs.readFileSync(path.join(GAS, 'Secretary.gs'), 'utf8')), '秘書檔不另外放金鑰、不另開試算表、不用允許名單');
+
+c = load(w, ALL);
+const p2 = n => String(n).padStart(2, '0');
+const dstr = off => { const t = new Date(); t.setDate(t.getDate() + off); return t.getFullYear() + '-' + p2(t.getMonth() + 1) + '-' + p2(t.getDate()); };
+const md = off => { const t = new Date(); t.setDate(t.getDate() + off); return (t.getMonth() + 1) + '/' + t.getDate(); };
+const notesN = () => w.sheets['筆記'].rows.length, gemN = () => w.sent.gemini.length;
+w.plan = text => {
+  if (text.includes('開會')) return JSON.stringify({ action: 'add_event', title: '跟王主任開會', start: dstr(1) + 'T15:00', location: '三樓會議室' });
+  if (text.includes('保養')) return '```json\n' + JSON.stringify({ action: 'add_event', title: '車子保養', start: dstr(3) }) + '\n```';
+  if (text.includes('有什麼事')) return JSON.stringify({ action: 'list_events', from: dstr(1), to: dstr(1) });
+  if (text.includes('交報告')) return JSON.stringify({ action: 'add_todo', content: '交報告', due: dstr(4) });
+  if (text.includes('報告交了')) return JSON.stringify({ action: 'done_todo', keyword: '報告' });
+  if (text.includes('午餐')) return JSON.stringify({ action: 'add_expense', type: '支出', category: '餐飲', item: '午餐', amount: 120, date: '' });
+  if (text.includes('薪水')) return JSON.stringify({ action: 'add_expense', type: '收入', category: '薪資', item: '薪水', amount: '45,000 元' });
+  if (text.includes('亂回')) return '我不知道';
+  return '{"action":"note"}';
+};
+let n0 = notesN(), g0 = gemN();
+c.testSecretary();
+ok(w.sheets['待辦'].rows[0][1] === '事項' && w.sheets['記帳'].rows[0][5] === '金額', 'testSecretary 在同一個試算表建立「待辦」「記帳」工作表');
+
+lineEvent(c, { type: 'text', id: 's1', text: '明天下午三點跟王主任開會，地點在三樓會議室' });
+let evs = w.sent.events;
+ok(evs.length === 1 && evs[0].title === '跟王主任開會' && evs[0].start.getHours() === 15 && evs[0].end - evs[0].start === 3600e3 && evs[0].opt.location === '三樓會議室', '行程：寫進行事曆，沒說結束時間就當一小時');
+ok(lastReply(w).includes('已記到行事曆') && lastReply(w).includes(md(1)) && lastReply(w).includes('15:00–16:00') && lastReply(w).includes('地點：三樓會議室'), '行程：回覆實際寫入的日期、時間、地點');
+ok(notesN() === n0, '行程不會被存成筆記');
+lineEvent(c, { type: 'text', id: 's2', text: '大後天車子要保養' });
+ok(evs.length === 2 && evs[1].allDay && lastReply(w).includes('（整天）'), '只有日期的行程存成整天活動（AI 回覆包在 ```json 裡也讀得懂）');
+lineEvent(c, { type: 'text', id: 's3', text: '我明天有什麼事' });
+ok(lastReply(w).includes('15:00　跟王主任開會') && !lastReply(w).includes('車子保養'), '查行事曆：只列出那一天的行程');
+g0 = gemN();
+lineEvent(c, { type: 'text', id: 's4', text: '行程' });
+ok(lastReply(w).includes('跟王主任開會') && lastReply(w).includes('整天　車子保養') && gemN() === g0, '傳「行程」列出未來七天，不用問 AI');
+
+g0 = gemN();
+lineEvent(c, { type: 'text', id: 's5', text: '待辦：打電話給王主任' });
+ok(w.sheets['待辦'].rows.length === 2 && w.sheets['待辦'].rows[1][1] === '打電話給王主任' && w.sheets['待辦'].rows[1][3] === '未完成' && gemN() === g0, '「待辦：…」直接加入，不用問 AI');
+lineEvent(c, { type: 'text', id: 's6', text: '記得週五前交報告' });
+ok(w.sheets['待辦'].rows[2][2] instanceof Date && lastReply(w).includes('期限 ' + md(4)) && lastReply(w).includes('還有 2 件'), 'AI 判斷成待辦，帶期限');
+lineEvent(c, { type: 'text', id: 's7', text: '待辦' });
+ok(lastReply(w).includes('1. 打電話給王主任') && lastReply(w).includes('2. 交報告（期限'), '傳「待辦」看清單');
+lineEvent(c, { type: 'text', id: 's8', text: '完成 1' });
+ok(w.sheets['待辦'].rows[1][3] === '完成' && w.sheets['待辦'].rows[1][4] instanceof Date && lastReply(w).includes('已完成：打電話給王主任') && lastReply(w).includes('還有 1 件'), '「完成 1」把第一件標成完成');
+lineEvent(c, { type: 'text', id: 's9', text: '報告交了' });
+ok(w.sheets['待辦'].rows[2][3] === '完成', '用關鍵字完成待辦');
+lineEvent(c, { type: 'text', id: 's10', text: '完成 5' });
+ok(lastReply(w).includes('目前沒有待辦事項'), '沒有待辦時的回覆');
+
+lineEvent(c, { type: 'text', id: 's11', text: '午餐 120' });
+let ex = w.sheets['記帳'].rows;
+ok(ex.length === 2 && ex[1][2] === '支出' && ex[1][3] === '餐飲' && ex[1][5] === 120 && lastReply(w).includes('支出累計 120 元'), '記帳：AI 分類後寫進「記帳」工作表並回報累計');
+lineEvent(c, { type: 'text', id: 's12', text: '領薪水 45000' });
+ok(ex[2][2] === '收入' && ex[2][5] === 45000 && lastReply(w).includes('45,000 元'), '收入：金額字串裡的逗號和「元」會被去掉');
+g0 = gemN();
+lineEvent(c, { type: 'text', id: 's13', text: '查帳' });
+ok(lastReply(w).includes('（2 筆）') && lastReply(w).includes('支出 120 元') && lastReply(w).includes('收入 45,000 元') && lastReply(w).includes('餐飲 120 元') && gemN() === g0, '「查帳」回本月統計，不用問 AI');
+w.geminiDown = true;
+lineEvent(c, { type: 'text', id: 's14', text: '記帳 加油 1250' });
+ok(ex.length === 4 && ex[3][4] === '加油' && ex[3][5] === 1250 && ex[3][3] === '未分類', 'AI 忙線時「記帳 項目 金額」還是記得進去');
+n0 = notesN();
+lineEvent(c, { type: 'text', id: 's15', text: 'AI 忙線時一般句子照樣存成筆記 手' });
+ok(notesN() === n0 + 1 && lastReply(w).includes('已存入'), 'AI 忙線時，一般句子照樣存成筆記');
+lineEvent(c, { type: 'text', id: 's16', text: '行程：後天開會' });
+ok(lastReply(w).includes('AI 暫時無法處理') && notesN() === n0 + 1, 'AI 忙線時，「行程：」開頭的句子回報錯誤、不會誤存成筆記');
+w.geminiDown = false;
+
+n0 = notesN(); g0 = gemN();
+lineEvent(c, { type: 'text', id: 's17', text: '手部精細動作可以用夾豆子練習' });
+ok(notesN() === n0 + 1 && lastReply(w).includes('已存入 #') && gemN() === g0 + 2, '一般句子：AI 判斷不是秘書的事，照舊整理後存成筆記');
+lineEvent(c, { type: 'text', id: 's18', text: 'AI 亂回的時候 手' });
+ok(notesN() === n0 + 2, 'AI 沒照格式回時當成筆記');
+g0 = gemN();
+lineEvent(c, { type: 'text', id: 's19', text: '筆記：下次開會要帶手指操講義' });
+ok(notesN() === n0 + 3 && w.sheets['筆記'].rows[notesN() - 1][7] === '下次開會要帶手指操講義' && gemN() === g0 + 1 && evs.length === 2, '「筆記：」開頭一定存成筆記（就算內容像行程），而且不多問一次 AI');
+g0 = gemN();
+lineEvent(c, { type: 'text', id: 's20', text: '開會資料 https://example.com/meeting' });
+ok(w.sheets['筆記'].rows[notesN() - 1][2] === '連結' && gemN() === g0 + 1 && evs.length === 2, '有網址的訊息照舊存成連結筆記');
+g0 = gemN(); n0 = notesN();
+lineEvent(c, { type: 'text', id: 's21', text: '找 糖尿病' });
+lineEvent(c, { type: 'text', id: 's22', text: '？開會要注意什麼' });
+ok(notesN() === n0 && evs.length === 2 && lastReply(w).includes('根據筆記'), '「找」和「？」維持原本的功能，不會被秘書攔走');
+
+lineEvent(c, { type: 'file', id: 's23', fileName: '講義.pdf' });
+rows = w.sheets['筆記'].rows;
+ok(rows[rows.length - 1][2] === '檔案' && rows[rows.length - 1][3] === '講義.pdf' && rows[rows.length - 1][8] === 'https://drive.google.com/file/講義.pdf' && lastReply(w).includes('講義.pdf'), '檔案：存到雲端硬碟，並在「筆記」留一則');
+lineEvent(c, { type: 'video', id: 's24' });
+ok(/^影片_\d{8}_\d{6}\.mp4$/.test(w.sent.files[w.sent.files.length - 1]), '影片：沒有檔名時自動命名');
+lineEvent(c, { type: 'sticker', id: 's25' });
+ok(lastReply(w).includes('只收文字'), '貼圖還是不收');
+
+n0 = notesN(); let t0 = w.sheets['待辦'].rows.length;
+lineEvent(c, { type: 'text', id: 's26', text: '待辦：偷加一筆' }, 'U-stranger');
+lineEvent(c, { type: 'text', id: 's27', text: '明天開會' }, 'U-stranger');
+ok(w.sheets['待辦'].rows.length === t0 && evs.length === 2 && lastReply(w).includes('私人的筆記機器人'), '不是主人的人不能用秘書功能');
+
+vm.runInContext('SECRETARY_AUTO = false', c);
+g0 = gemN(); n0 = notesN();
+lineEvent(c, { type: 'text', id: 's28', text: '後天下午開會討論教案 手' });
+ok(evs.length === 2 && notesN() === n0 + 1 && gemN() === g0 + 1, 'SECRETARY_AUTO 關閉：沒有指定開頭的句子直接存成筆記，只呼叫 AI 一次');
+lineEvent(c, { type: 'text', id: 's29', text: '行程：後天下午開會' });
+ok(evs.length === 3, 'SECRETARY_AUTO 關閉：「行程：」開頭還是會記到行事曆');
+lineEvent(c, { type: 'text', id: 's30', text: '記帳 午餐 90' });
+ok(w.sheets['記帳'].rows.length === 5 && w.sheets['記帳'].rows[4][5] === 120, 'SECRETARY_AUTO 關閉：「記帳 …」開頭還是會交給 AI 分類');
+
+const w4 = makeWorld(); const c4 = load(w4, ['Capture']); c4.setup();
+lineEvent(c4, { type: 'file', id: 'f1', fileName: 'a.pdf' });
+ok(lastReply(w4).includes('只收文字') && w4.sent.files.length === 0, '還沒做階段 6 時，檔案訊息照舊說明不支援');
+lineEvent(c4, { type: 'text', id: 'f2', text: '筆記：只做階段 1 也能用 手' });
+ok(w4.sheets['筆記'].rows[1][7] === '只做階段 1 也能用 手' && !w4.sheets['待辦'], '還沒做階段 6 時，文字照舊存成筆記');
+
 console.log('金鑰錯誤');
 const w3 = makeWorld(); const c3 = load(w3, ['Capture']);
 vm.runInContext("GEMINI_API_KEY = 'WRONG'", c3);
 let msg = ''; try { c3.askGemini('hi'); } catch (e) { msg = e.message; }
 ok(msg.includes('金鑰好像不對') && w3.sent.gemini.length === 1, '金鑰錯誤：說明原因，且不會白白換模型重試');
+ok(c3.explainError({ code: 402, message: 'prepayment credits are depleted' }).includes('儲值金用完了'), '402：說明是預付儲值金用完');
 
 console.log(`\n通過 ${pass}，失敗 ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 FILES = {"Capture": "Capture.gs", "Web": "Web.gs", "Index": "Index.html",
-         "Ask": "Ask.gs", "Weekly": "Weekly.gs", "Compose": "Compose.gs"}
+         "Ask": "Ask.gs", "Weekly": "Weekly.gs", "Compose": "Compose.gs", "Secretary": "Secretary.gs"}
 
 gas = {k: (ROOT / "src" / "gas" / f).read_text(encoding="utf-8") for k, f in FILES.items()}
 # 放在 <script type="application/json"> 裡：把 < 換成 <，避免程式碼裡的 </script> 把標籤提早關掉

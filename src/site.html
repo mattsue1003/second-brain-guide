@@ -2,11 +2,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>第二大腦實作教室</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="用 LINE、Google 試算表和 Gemini，一步一步做出會自動整理、能問答、會寄每週回顧的個人第二大腦。">
+<meta name="description" content="用 LINE、Google 試算表和 Gemini，一步一步做出會自動整理、能問答、會寄每週回顧，還會記行事曆、待辦和記帳的個人第二大腦。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: 頂部五階段地圖（可點）→ 左側步驟清單 + 右側單步內容（動作、示意畫面、要貼的程式碼、檢查點） */
+/* Layout: 頂部六階段地圖（可點）→ 左側步驟清單 + 右側單步內容（動作、示意畫面、要貼的程式碼、檢查點） */
 :root{
   --bg:#F3F4FA; --surface:#FFFFFF; --sunk:#E8EAF4; --ink:#161B2E; --muted:#57607A; --line:#D6DAE8;
   --accent:#2F45C5; --accent-ink:#FFFFFF; --accent-soft:#E3E8FC;
@@ -45,10 +45,10 @@ button{font:inherit; cursor:pointer}
 .ghost{border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:999px; padding:8px 14px; font-weight:500}
 .ghost[aria-pressed="true"]{border-color:var(--accent); color:var(--accent)}
 
-/* 五階段地圖 */
+/* 六階段地圖 */
 .map{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:18px 20px; display:flex; flex-direction:column; gap:12px}
 .map h2{font-size:1.05em}
-.map-row{display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:8px}
+.map-row{display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px}
 .stage{border:2px solid transparent; background:var(--sunk); color:var(--ink); border-radius:12px; padding:10px 12px; text-align:left; display:flex; flex-direction:column; gap:2px; min-width:0}
 .stage[aria-pressed="true"]{background:var(--accent-soft); border-color:var(--accent)}
 .stage .ic{font-family:var(--f-num); font-weight:700; font-size:.72em; color:var(--accent); letter-spacing:.08em}
@@ -205,7 +205,7 @@ footer{font-size:.8em; color:var(--muted); text-align:center}
   .steps small{display:none}
   .cols{grid-template-columns:minmax(0,1fr)}
   .panel{padding:18px}
-  .map-row{grid-template-columns:repeat(5, minmax(132px,1fr)); overflow-x:auto; padding-bottom:4px}
+  .map-row{grid-template-columns:repeat(6, minmax(132px,1fr)); overflow-x:auto; padding-bottom:4px}
 }
 @media (prefers-reduced-motion: reduce){.hot{animation:none} .bar i{transition:none}}
 </style>
@@ -213,20 +213,20 @@ footer{font-size:.8em; color:var(--muted); text-align:center}
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <small>LINE × Google 試算表 × Gemini</small>
+      <small>LINE × Google 試算表 × Gemini × Google 日曆</small>
       <h1>第二大腦實作教室</h1>
-      <p>想到什麼就傳給 LINE，AI 幫你下標題、摘要、標籤，存進自己的試算表。之後可以搜尋、發問、每週收到回顧信，再把筆記變成貼文或教案。全部免費，不用架伺服器。</p>
+      <p>想到什麼就傳給 LINE，AI 幫你下標題、摘要、標籤，存進自己的試算表。之後可以搜尋、發問、每週收到回顧信，把筆記變成貼文或教案，最後讓同一個機器人當秘書：記行事曆、待辦和記帳。全部免費，不用架伺服器。</p>
     </div>
     <button class="ghost" id="bigBtn" aria-pressed="false">投影模式（大字）</button>
   </header>
 
   <section class="map" aria-labelledby="maph">
-    <h2 id="maph">五個階段，做完一個就能用一個</h2>
+    <h2 id="maph">六個階段，做完一個就能用一個</h2>
     <div class="map-row" id="mapRow"></div>
-    <p class="map-note">每個階段都是在同一個 Google 試算表裡多加一個檔案。只做階段 1 也能用，之後有空再往下做。點上面的方塊切換階段。</p>
+    <p class="map-note">每個階段都是在同一個 Google 試算表裡多加一個檔案，從頭到尾用同一個 LINE 官方帳號、同一個網址。只做階段 1 也能用，之後有空再往下做。點上面的方塊切換階段。</p>
   </section>
 
-  <div class="prep"><b>開始前準備：</b><span class="chip">一個 Google 帳號</span><span class="chip">LINE 帳號（手機）</span><span class="chip">電腦＋Chrome 瀏覽器</span><span class="chip">五個階段共約 90 分鐘</span></div>
+  <div class="prep"><b>開始前準備：</b><span class="chip">一個 Google 帳號</span><span class="chip">LINE 帳號（手機）</span><span class="chip">電腦＋Chrome 瀏覽器</span><span class="chip">六個階段共約 110 分鐘</span></div>
   <div class="privacy"><b>先講清楚隱私：</b>筆記存在你自己的 Google 試算表，但內容會送到 Gemini 整理。Gemini 免費方案的內容可能被 Google 用來改善產品，所以<b>不要記錄姓名、病歷號、電話等可以辨識個案的資料</b>，寫「78 歲女性、右側偏癱」這種去識別化的描述就好。</div>
 
   <div class="main">
@@ -249,6 +249,9 @@ footer{font-size:.8em; color:var(--muted); text-align:center}
       <div><b>問筆記</b>傳 <code class="inl">？我記過哪些失智團體活動</code>，AI 只根據你的筆記回答並附來源。（階段 3）</div>
       <div><b>每週日晚上</b>收到回顧信：這週在想什麼、哪些舊筆記可以拿來用。（階段 4）</div>
       <div><b>要產出時</b>打開知識總站網頁，勾幾則筆記，選「教案初稿」或「FB 貼文」。（階段 5）</div>
+      <div><b>交代行程</b>傳 <code class="inl">明天下午三點跟王主任開會</code> 記進 Google 日曆；傳 <code class="inl">行程</code> 看未來七天。（階段 6）</div>
+      <div><b>待辦和記帳</b>傳 <code class="inl">待辦：打電話給王主任</code>、<code class="inl">完成 1</code>、<code class="inl">午餐 120</code>、<code class="inl">查帳</code>。（階段 6）</div>
+      <div><b>一定要存成筆記</b>句子開頭加 <code class="inl">筆記：</code>，秘書就不會把它當成行程或待辦。（階段 6）</div>
     </div>
   </section>
 
@@ -264,7 +267,7 @@ footer{font-size:.8em; color:var(--muted); text-align:center}
     <details><summary>機器人回「這是私人的筆記機器人」</summary>
       <p>第一個傳訊息的人會被設為主人，之後只收主人的訊息。如果主人設錯了（例如測試時用了別的帳號），到 Apps Script 函式選單選 <code class="inl">resetOwner</code> 執行，再用你的 LINE 傳一則訊息。</p></details>
     <details><summary>機器人回「AI 暫時無法處理…」</summary>
-      <p>LINE 那一半已經通了，問題在 Gemini。括號裡的數字是原因：400／403 多半是金鑰貼錯；404 是模型名稱停用，到「設定」檔把 MODEL 換掉；429 是免費額度用完，等一下再試；503 是 Google 那邊忙線。文字筆記在 AI 忙線時還是會存進去，只是標題會先用原文的前 20 個字。</p></details>
+      <p>LINE 那一半已經通了，問題在 Gemini。括號裡的數字是原因：400／403 多半是金鑰貼錯；402 是金鑰的專案開了預付制付費但儲值金是 0，到 AI Studio 建一個沒有綁帳單的新專案、換一把新金鑰；404 是模型名稱停用，到「設定」檔把 MODEL 換掉；429 是免費額度用完，等一下再試；503 是 Google 那邊忙線。文字筆記在 AI 忙線時還是會存進去，只是標題會先用原文的前 20 個字。</p></details>
     <details><summary>語音或照片沒辦法處理</summary>
       <p>程式會依序換備用模型再試。如果都失敗，到「設定」檔把 MODEL 改成 <code class="inl">gemini-3.6-flash</code> 再部署新版本。單一檔案上限是 15MB，LINE 的語音訊息通常遠低於這個大小。</p></details>
     <details><summary>知識總站網頁顯示「密碼不對」或被鎖住</summary>
@@ -277,8 +280,14 @@ footer{font-size:.8em; color:var(--muted); text-align:center}
       <p>這是你自己寫的程式，Google 沒有審核過才會這樣提示。點 <span class="ui">進階</span> → <span class="ui">前往「專案名稱」（不安全）</span> → <span class="ui">允許</span>。授權的對象是你自己的帳號。</p></details>
     <details><summary>我做過「AI 機器人串接教室」，可以用同一個 LINE 官方帳號嗎？</summary>
       <p>一個官方帳號只能填一個 Webhook 網址。建議另外建一個新的官方帳號當第二大腦，原本的聊天機器人就不受影響。Gemini 金鑰可以共用同一把。</p></details>
+    <details><summary>我想存筆記，卻被記成行程或待辦（階段 6）</summary>
+      <p>做完階段 6 之後，每句話會先請 AI 判斷是不是行程、待辦或記帳。想確定存成筆記，開頭加 <code class="inl">筆記：</code> 或 <code class="inl">記一下：</code>。如果常常判斷錯，到「秘書」檔最上面把 <code class="inl">SECRETARY_AUTO</code> 改成 <code class="inl">false</code> 再部署新版本：之後只有「行程：」「待辦：」「記帳」開頭的句子才會交給秘書，其他一律存成筆記。記錯的那一筆，直接到 Google 日曆或試算表的「待辦」「記帳」工作表刪掉。</p></details>
+    <details><summary>記到行事曆的時間差了好幾個小時（階段 6）</summary>
+      <p>Apps Script 左側 <span class="ui">⚙ 專案設定</span> 的時區要是 <b>(GMT+08:00) 台北</b>。改完不用重新部署，再傳一次就會正確。已經記錯的活動請到 Google 日曆手動修改。</p></details>
+    <details><summary>我以前做過「AI 秘書機器人」，舊資料怎麼辦？</summary>
+      <p>舊的秘書是另一個 Apps Script 專案，資料在雲端硬碟的「AI 秘書記錄」試算表，不會消失。這裡的階段 6 是把行事曆、待辦、記帳接到第二大腦的同一個機器人上；舊的「待辦」「記帳」分頁內容，可以整列複製貼到「第二大腦」試算表的同名工作表（欄位順序一樣）。舊的「記錄、筆記、連結」可以用階段 2 的「匯入」工作表收進筆記庫。</p></details>
     <details><summary>免費額度夠用嗎？</summary>
-      <p>個人使用通常夠：每存一則筆記呼叫 Gemini 1 到 2 次；LINE 機器人「回覆」不算則數，只有每週回顧的 LINE 推播會用到每月 200 則的免費額度（一個月約 4 則）。不想用推播，把「設定」檔的 WEEKLY_LINE 改成 false。</p></details>
+      <p>個人使用通常夠：每存一則筆記呼叫 Gemini 1 到 2 次（做完階段 6 會多 1 次，用來判斷是不是行程、待辦或記帳）；LINE 機器人「回覆」不算則數，只有每週回顧的 LINE 推播會用到每月 200 則的免費額度（一個月約 4 則）。不想用推播，把「設定」檔的 WEEKLY_LINE 改成 false。</p></details>
   </section>
 
   <footer>示意畫面為簡化繪製，實際按鈕位置可能因網站改版略有不同。本頁不會儲存或上傳你輸入的金鑰。</footer>
@@ -295,7 +304,8 @@ var GAS = JSON.parse($('#gasData').textContent);
 /* 檔案在 Apps Script 裡的名稱 */
 var FILES = {
   Capture:{ name:'收集', ext:'.gs' }, Web:{ name:'網頁', ext:'.gs' }, Index:{ name:'Index', ext:'.html' },
-  Ask:{ name:'問答', ext:'.gs' }, Weekly:{ name:'週報', ext:'.gs' }, Compose:{ name:'產出', ext:'.gs' }
+  Ask:{ name:'問答', ext:'.gs' }, Weekly:{ name:'週報', ext:'.gs' }, Compose:{ name:'產出', ext:'.gs' },
+  Secretary:{ name:'秘書', ext:'.gs' }
 };
 
 /* ---------- 示意畫面零件 ---------- */
@@ -364,7 +374,7 @@ function S_REDEPLOY(o){
     pit:['選成「新增部署作業」會產生另一個新網址，LINE 的 Webhook 還是指向舊的。要選「管理部署作業」','忘記把版本改成「新版本」就按部署，程式不會更新'] };
 }
 
-var F1 = ['設定.gs','收集.gs'], F2 = F1.concat(['網頁.gs','Index.html']), F3 = F2.concat(['問答.gs']), F4 = F3.concat(['週報.gs']);
+var F1 = ['設定.gs','收集.gs'], F2 = F1.concat(['網頁.gs','Index.html']), F3 = F2.concat(['問答.gs']), F4 = F3.concat(['週報.gs']), F5 = F4.concat(['產出.gs']), F6 = F5.concat(['秘書.gs']);
 
 /* ================= 階段 1 ================= */
 var S1 = [
@@ -522,7 +532,7 @@ var S1 = [
         [['1','11/22','文字','手指操搭配懷舊歌曲','用長輩熟悉的老歌帶…','手指操、懷舊音樂'],['2','11/22','連結','高齡者肌少症飲食','蛋白質攝取建議每公斤…','肌少症、營養'],['3','11/22','照片','上肢活動流程板書','暖身、主活動、收操…','上肢、流程'],['4','11/22','錄音','音樂律動參與度高','今天帶音樂律動，多數…','音樂律動']],
         ['筆記','工作表1'], '筆記'), '示意圖：試算表自動多出四列'); },
     check:['LINE 每則都回「已存入 #編號」','試算表「筆記」工作表有對應的列，標題、摘要、標籤、類別都有內容'],
-    pit:['完全沒反應：看頁面下方「卡住了？」第一題','語音或照片失敗：看「卡住了？」的「語音或照片沒辦法處理」','類別不合用：到「設定」檔改 CATEGORIES，再部署新版本'] }
+    pit:['完全沒反應：看頁面下方「卡住了？」第一題','傳影片或 PDF 會回「目前只收文字、網址、照片和語音訊息」，做完階段 6 才會收','語音或照片失敗：看「卡住了？」的「語音或照片沒辦法處理」','類別不合用：到「設定」檔改 CATEGORIES，再部署新版本'] }
 ];
 
 /* ================= 階段 2 ================= */
@@ -663,7 +673,7 @@ var S5 = [
     pit:['自己加範本時，每一行結尾要有逗號，文字要用單引號包起來','存檔時出現紅色錯誤：多半是少了逗號或引號'] }),
   S_REDEPLOY({ check:[] }),
   { t:'把筆記變成初稿', s:'勾選 → 產出 → 複製', time:'5 分鐘',
-    why:'最後一步：實際做一份成品。這也是整個第二大腦的終點，把累積的東西變成可以發表、可以上課用的內容。',
+    why:'實際做一份成品。收集、整理、問答到這裡接成一條線：把累積的東西變成可以發表、可以上課用的內容。下一個階段再讓同一個機器人當秘書。',
     acts:[
       '打開知識總站網頁，重新整理一次。在 <span class="ui">搜尋</span> 分頁找一個主題。',
       '在想用的筆記左邊<b>打勾</b>，可以勾好幾則。畫面下方會出現「已勾選 N 則」。',
@@ -688,12 +698,107 @@ var S5 = [
     pit:['回「產出功能要完成階段 5 才會開啟」：上一步沒有部署新版本','「要做成什麼」選單是空的：網頁要重新整理','初稿裡的「（待補：…）」是筆記裡沒有的資訊，AI 不會自己編，要你補上'] }
 ];
 
+/* ================= 階段 6 ================= */
+var PROMPT_EXTEND = [
+'這是我的 Google Apps Script 專案裡的「秘書.gs」。它接在一個 LINE 筆記機器人後面：LINE 傳來的文字會先交給 secretaryText(text)，它回傳一段文字就直接回覆給我，回傳空字串就代表「這是筆記」，由別的檔案存起來。',
+'',
+'我想加一個新功能：【用一兩句話描述。例如：記錄每天的血壓，我會說「血壓 128/82」；我說「血壓記錄」時，列出最近 7 筆】',
+'',
+'開始寫之前，請先問我 2 到 3 個問題，把需求問清楚（例如：我會怎麼說、要記哪些欄位、查詢時想看到什麼），等我回答之後再動手。',
+'',
+'動手時請照檔案裡現有的寫法做這四件事：',
+'1. 在 TABS 加一個工作表和欄位',
+'2. 寫新的函式（參考 addTodo、listTodos 的寫法，用 tab(名稱) 取得工作表、tabRows(名稱) 讀資料）',
+'3. 在 askPlan 的提示文字加一條新的 JSON 指令和使用時機',
+'4. 在 secretaryText 加對應的 if',
+'',
+'限制：',
+'- 不要改動其他功能。',
+'- 這些函式在別的檔案裡，可以直接呼叫，不要重寫：book()、askGemini(文字, 系統提示)、saveNote(筆記)、lineContent(訊息編號)、attachFolder()。',
+'- 金鑰放在另一個「設定.gs」，這個檔案裡不要出現金鑰。',
+'- 只用 Google Apps Script 內建的服務，註解用繁體中文（台灣用語）。',
+'最後請給我「完整的、可以整份貼上」的秘書.gs，不要省略任何一段，並列出你改了哪幾個地方。',
+'',
+'下面是目前的秘書.gs：',
+'【把整份秘書.gs 貼在這裡】'
+].join('\n');
+
+var S6 = [
+  S_ADD('Secretary', F5, { s:'行事曆、待辦、記帳的程式', time:'4 分鐘', fn:'testSecretary',
+    why:'前五個階段的機器人只會「存筆記」。加上這個檔案，同一個機器人還會幫你記 Google 日曆、列待辦事項、記帳。不用另外申請 LINE 帳號、不用另外開專案，金鑰也沿用「設定」檔裡的那一組。',
+    snippet:'<span style="color:var(--code-com)">// ===== 階段 6：AI 秘書 =====</span>\nvar SECRETARY_AUTO = true;\nvar TABS = { \'待辦\': […], \'記帳\': […] };\n\nfunction secretaryText(text) { … }\nfunction addEvent(p) { … }\nfunction addTodo(p) { … }\nfunction addExpense(p) { … }',
+    more:['點左側的 <span class="ui">⚙ 專案設定</span>，確認「時區」是 <b>(GMT+08:00) 台北</b>。不是的話改掉。時區不對，記到行事曆的時間會跑掉。看完點左側 <span class="ui">&lt;&gt; 編輯器</span> 回來。'],
+    extraMock:function(){ return fig(win('script.google.com/…/settings',
+      '<div class="m-side"><div class="m-nav"><span>ⓘ 總覽</span><span>&lt;&gt; 編輯器</span><span>⏰ 觸發條件</span><span>≡ 執行項目</span><span class="on hot">'+pin(5)+' ⚙ 專案設定</span></div>'+
+      '<div class="m-main"><span class="m-title">專案設定</span><div class="m-kv"><span class="m-muted">時區</span><span class="m-select hot">(GMT+08:00) 台北 ▾</span></div></div></div>'), '第 5 步：確認時區'); },
+    check:['左側多了「秘書.gs」，一共 8 個檔案','專案設定的時區是 (GMT+08:00) 台北'],
+    pit:['以前做過「AI 秘書機器人」的人：不要把那一版的程式碼貼進來，兩份都有 doPost，會互相打架。這裡的「秘書」檔是配合第二大腦重寫的','這個檔案沒有金鑰要填。最上面的 SECRETARY_AUTO 先不用改'] }),
+
+  { t:'執行測試並授權日曆', s:'執行 testSecretary', time:'4 分鐘',
+    why:'程式多了「讀寫你的 Google 日曆」的能力，所以要再授權一次。這一步同時會在「第二大腦」試算表建立「待辦」和「記帳」兩個工作表。',
+    acts:[
+      '函式選單選 <span class="ui">testSecretary</span> → <span class="ui">▶ 執行</span>。',
+      '出現授權視窗：<span class="ui">審查權限</span> → 選你的帳號 → <span class="ui">進階</span> → <span class="ui">前往「第二大腦」（不安全）</span> → <span class="ui">允許</span>。這次多要求的是「日曆」的權限。',
+      '執行記錄出現三行：「待辦」「記帳」工作表準備好了、今天的行事曆、AI 判斷測試。',
+      '看「AI 判斷測試」那一行：AI 把「明天下午三點跟王主任開會」變成一段 JSON，裡面有 <code class="inl">add_event</code> 和明天的日期。這只是測試，不會真的寫進日曆。',
+      '回試算表分頁，確認左下角多了「待辦」和「記帳」兩個工作表。'
+    ],
+    mock:function(){ return fig(editor(F6, '秘書.gs', { run:1, fn:'testSecretary', fnPin:1, code:'function testSecretary() {\n  tab(\'待辦\'); tab(\'記帳\');\n  …\n}',
+        log:'資訊　「待辦」「記帳」工作表準備好了\n資訊　11/23（一） 行事曆上沒有安排。\n資訊　AI 判斷測試：{"action":"add_event","title":"跟王主任開會","start":"2026-11-24T15:00","location":"三樓會議室"}', logPin:3 })) +
+      fig(sheet('第二大腦', '52px 1.6fr 60px 60px 70px', ['時間','事項','期限','狀態','完成時間'], [['','','','','']], ['筆記','匯入','向量','產出','待辦','記帳'], '待辦'), '第 5 步：同一個試算表多了「待辦」「記帳」工作表'); },
+    check:['執行記錄有「AI 判斷測試：」加上一段含 add_event 的 JSON','試算表多了「待辦」「記帳」兩個工作表，第一列是欄位名稱'],
+    pit:['執行記錄第一行出現「注意：這個專案的時區是…」：回上一步把時區改成台北','AI 判斷測試那一行是 {"error":"AI 暫時無法處理…"}：問題在 Gemini，看頁面下方「卡住了？」','出現「ReferenceError: book is not defined」：這個檔案要加在原本的「第二大腦」專案裡，不能放在另一個新專案'] },
+
+  S_REDEPLOY({ check:[] }),
+
+  { t:'用 LINE 交代事情', s:'行程、待辦、記帳、檔案', time:'8 分鐘',
+    why:'用平常說話的方式傳給同一個機器人。程式會先請 AI 判斷這句話是行程、待辦、記帳，還是一般的筆記，再真的去寫日曆或試算表。回覆的內容是程式實際寫進去的結果，可以直接對照確認。',
+    acts:[
+      '<b>記行程</b>：傳「明天下午三點跟王主任開會，地點在三樓會議室」。打開 Google 日曆確認有這個活動。只說日期（「11 月 30 日車子要保養」）會記成整天的活動。',
+      '<b>查行程</b>：傳「我明天有什麼事？」，或只傳 <code class="inl">行程</code> 兩個字看未來七天。',
+      '<b>待辦</b>：傳 <code class="inl">待辦：打電話給王主任</code>，或直接說「記得週五前交報告」。傳 <code class="inl">待辦</code> 看清單，做完傳 <code class="inl">完成 1</code>。',
+      '<b>記帳</b>：傳「午餐 120」「昨天加油 1250」「領薪水 45000」，AI 會自動分類。傳 <code class="inl">查帳</code> 看這個月的統計。',
+      '<b>檔案</b>：傳一個 PDF 或一段影片，會存到雲端硬碟的「第二大腦附件」資料夾，並在筆記庫留一則，之後搜尋得到。',
+      '<b>筆記照舊</b>：傳一句心得或觀察，還是會回「已存入 #編號」。想確定存成筆記，開頭加 <code class="inl">筆記：</code>。「找 關鍵字」和「？問題」也和以前一樣。',
+      '回電腦看「第二大腦」試算表的「待辦」「記帳」工作表，剛剛傳的都在裡面。'
+    ],
+    mock:function(){ return fig(phone('我的第二大腦',
+        me('明天下午三點跟王主任開會，地點在三樓會議室')+
+        bot('已記到行事曆：\n11/24（二） 15:00–16:00\n跟王主任開會\n地點：三樓會議室')+
+        me('待辦：打電話給王主任')+
+        bot('已加入待辦：\n打電話給王主任\n目前還有 1 件沒完成。傳「待辦」可以看清單。')+
+        me('午餐 120')+
+        bot('已記帳：\n11/23（一） 支出 120 元｜餐飲｜午餐\n11 月支出累計 120 元')), '示意圖：同一個機器人，現在也會記行程、待辦和記帳') +
+      fig(sheet('第二大腦', '52px 52px 44px 52px 1fr 52px', ['時間','日期','收支','分類','項目','金額'],
+        [['11/23','11/23','支出','餐飲','午餐','120'],['11/23','11/22','支出','交通','加油','1250'],['11/23','11/23','收入','薪資','薪水','45000']],
+        ['筆記','匯入','向量','產出','待辦','記帳'], '記帳'), '第 7 步：「記帳」工作表'); },
+    check:['Google 日曆出現剛剛說的活動，時間正確','「待辦」「記帳」工作表有對應的列','傳一句一般的心得，還是回「已存入 #編號」'],
+    pit:['筆記被當成行程或待辦：開頭加「筆記：」。常常發生的話，看頁面下方「卡住了？」的說明把 SECRETARY_AUTO 關掉','行事曆的時間差了幾個小時：專案設定的時區不是台北','每則訊息是獨立的，它不記得上一句；一句話有好幾筆帳只會記第一筆','目前不能用 LINE 修改或刪除，要改請直接到日曆或試算表改','回覆和階段 1 一樣沒變：上一步沒有部署新版本'] },
+
+  { t:'自己加一個新功能', s:'四個零件＋請 AI 幫忙', time:'15 分鐘', tools:['prompt'],
+    why:'「秘書」檔裡的每個功能都是同樣的四個零件。看懂這個結構，就能照樣加出「血壓記錄」「喝水記錄」「讀書清單」這類自己的功能。最省力的做法是請 ChatGPT 或 Gemini 幫你改。',
+    acts:[
+      '<b>零件 1｜工作表</b>：在 <code class="inl">TABS</code> 加一行，寫工作表名稱和欄位。例如 <code class="inl">\'血壓\': [\'時間\', \'收縮壓\', \'舒張壓\', \'備註\']</code>。',
+      '<b>零件 2｜動作</b>：寫一個函式負責寫進試算表，並回一句確認的話。可以照抄 <code class="inl">addTodo</code> 來改。',
+      '<b>零件 3｜教 AI 認得</b>：在 <code class="inl">askPlan</code> 的提示裡加一條，告訴 AI 這個新指令的 JSON 長什麼樣子、什麼時候用。',
+      '<b>零件 4｜接線</b>：在 <code class="inl">secretaryText</code> 加一行 <code class="inl">if (plan.action === \'新指令\') return 新函式(plan);</code>。',
+      '請 AI 幫忙：按下方 <span class="ui">複製這段話</span>，貼到 ChatGPT 或 Gemini，把【 】裡換成你想要的功能，最後面貼上整份「秘書.gs」。AI 會先問你幾個問題，回答完它才會開始寫。',
+      '把 AI 給的完整程式碼貼回「秘書.gs」（先全部刪掉再貼）→ 儲存 → 執行 <span class="ui">testSecretary</span> 確認沒有紅字 → 部署新版本 → 用 LINE 試。'
+    ],
+    mock:function(){ return fig(editor(F6, '秘書.gs', { hotFile:'秘書.gs',
+        code:'var TABS = {\n  \'待辦\': […],\n  \'記帳\': […],\n  <span class="hot" style="color:var(--code-str)">'+pin(1)+' \'血壓\': [\'時間\', \'收縮壓\', \'舒張壓\']</span>\n};\n<span class="hot">'+pin(2)+' function addBP(p) { … }</span>\n<span style="color:var(--code-com)">// askPlan 的提示</span>\n<span class="hot">'+pin(3)+' \'9. 記血壓：{"action":"add_bp",…}\'</span>\n<span style="color:var(--code-com)">// secretaryText</span>\n<span class="hot">'+pin(4)+' if (plan.action === \'add_bp\') return addBP(plan);</span>' }), '示意圖：四個零件在「秘書.gs」裡的位置') +
+      fig(phone('我的第二大腦', me('血壓 128/82')+bot('已記錄血壓：128 / 82\n本週平均 126 / 80')+me('血壓記錄')+bot('最近 7 筆：\n11/23 128/82\n11/22 124/79\n…')), '示意圖：加好之後的樣子'); },
+    check:['用 LINE 傳新功能的句子，機器人照你設計的方式回覆','試算表多了新功能的工作表','原本的行程、待辦、記帳、存筆記都還能用'],
+    pit:['AI 給的程式碼不完整（中間寫「…其餘不變」）：請它「給我完整程式碼，不要省略」','貼回去後出現紅字錯誤：把錯誤訊息整段貼回給 AI，請它修','改壞了想回復：回到這個階段的第 1 步重新複製「秘書.gs」，或用 Apps Script 左側「專案記錄」（時鐘圖示）還原','忘了部署新版本：編輯器裡測試正常，但 LINE 上還是舊的','「秘書.gs」裡沒有金鑰，可以整份貼給 AI。「設定.gs」有金鑰，不要貼'] }
+];
+
 var STAGES = [
   { id:'s1', n:'階段 1', name:'隨手記', d:'傳給 LINE 就存好，AI 自動整理', steps:S1 },
   { id:'s2', n:'階段 2', name:'知識總站', d:'一個網頁搜尋全部筆記，匯入舊資料', steps:S2 },
   { id:'s3', n:'階段 3', name:'問自己的 AI', d:'用自己的筆記回答問題，附來源', steps:S3 },
   { id:'s4', n:'階段 4', name:'每週回顧信', d:'每週日自動寄出回顧與舊筆記', steps:S4 },
-  { id:'s5', n:'階段 5', name:'變成成品', d:'勾選筆記，產出貼文、教案、簡報', steps:S5 }
+  { id:'s5', n:'階段 5', name:'變成成品', d:'勾選筆記，產出貼文、教案、簡報', steps:S5 },
+  { id:'s6', n:'階段 6', name:'AI 秘書', d:'同一個機器人記行事曆、待辦、記帳', steps:S6 }
 ];
 var BY = {}; STAGES.forEach(function(s){ BY[s.id] = s; });
 
@@ -758,12 +863,16 @@ function toolHTML(kind){
     var lines = GAS[key].split('\n').length;
     return '<div class="tool"><h3>'+(state.stage==='s1'?'小工具 B：':'')+'要貼到「'+f.name+f.ext+'」的程式碼</h3><p>共 '+lines+' 行，不用修改，整份複製貼上就好。框裡可以捲動查看內容。</p>'+ codeBlock('code-'+key) +'</div>';
   }
+  if(kind === 'prompt'){
+    return '<div class="tool"><h3>小工具：請 ChatGPT 或 Gemini 幫你加功能</h3><p>複製這段話貼給 AI，把【 】換成你要的內容，最後貼上整份「秘書.gs」。這段話會請 AI 先問你問題，問清楚才動手。「設定.gs」裡有金鑰，不要貼給 AI。</p>'+ codeBlock('promptOut', '複製這段話') +'</div>';
+  }
   return '';
 }
 function wireTools(tools){
   tools.forEach(function(kind){
     if(kind.indexOf('code:') === 0){ var key = kind.slice(5); $('#code-'+key).innerHTML = key === 'Index' ? esc(GAS[key]) : highlight(GAS[key]); }
   });
+  if(tools.indexOf('prompt') >= 0){ var po = $('#promptOut'); po.textContent = PROMPT_EXTEND; po.style.whiteSpace = 'pre-wrap'; po.style.paddingTop = '48px'; }
   if(tools.indexOf('config') >= 0){
     var refresh = function(){
       $('#cfgOut').innerHTML = highlight(configCode());
@@ -788,7 +897,7 @@ function wireTools(tools){
   document.querySelectorAll('#panel [data-copy]').forEach(function(cp){
     cp.addEventListener('click', function(){
       var id = cp.dataset.copy, label = cp.textContent;
-      var text = id === 'cfgOut' ? configCode() : GAS[id.slice(5)];
+      var text = id === 'cfgOut' ? configCode() : id === 'promptOut' ? PROMPT_EXTEND : GAS[id.slice(5)];
       var done = function(){ cp.textContent = '已複製 ✓'; setTimeout(function(){ cp.textContent = label; }, 1800); };
       var fallback = function(){ var r = document.createRange(); r.selectNodeContents($('#'+id)); var s = getSelection(); s.removeAllRanges(); s.addRange(r); cp.textContent = '已選取，請按 Ctrl/⌘＋C'; };
       try { navigator.clipboard.writeText(text).then(done, fallback); } catch(e){ fallback(); }
