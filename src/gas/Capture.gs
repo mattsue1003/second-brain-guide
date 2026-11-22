@@ -97,6 +97,8 @@ function captureText(text) {
   var note;
   if (url) {
     var page = fetchPage(url);
+    page.title = toTraditional(page.title);   // 簡體網站的內容先轉成繁體再存
+    page.text = toTraditional(page.text);
     var memo = text.replace(url, '').trim();
     var body = (memo ? '我的備註：' + memo + '\n' : '') + (page.title ? '網頁標題：' + page.title + '\n' : '') + page.text;
     note = digest(body || url, '網頁');
@@ -134,8 +136,8 @@ function captureMedia(blob, kind) {
   if (bytes.length > 15 * 1024 * 1024) throw new Error('檔案超過 15MB，太大了');
   var mime = kind === '錄音' ? 'audio/m4a' : (blob.getContentType() || 'image/jpeg');
   var ask = kind === '錄音'
-    ? '請把這段錄音逐字轉成繁體中文文字，只輸出逐字稿。'
-    : '請完整抄錄這張圖片裡的文字；如果沒有文字，就用三句話描述圖片內容。只輸出結果，用繁體中文。';
+    ? '請把這段錄音逐字轉成文字，只輸出逐字稿。逐字稿一律用繁體中文（台灣用語）書寫，不可以出現簡體字。'
+    : '請完整抄錄這張圖片裡的文字；如果沒有文字，就用三句話描述圖片內容。只輸出結果，一律用繁體中文（台灣用語），圖片裡是簡體字也要轉成繁體字。';
   var text = askGemini([{ text: ask }, { inline_data: { mime_type: mime, data: Utilities.base64Encode(bytes) } }]);
   var note = digest(text, kind);
   note.type = kind;
@@ -269,8 +271,46 @@ function resetOwner() {
 
 // ================= Gemini =================
 
-// input 可以是一句話，也可以是 parts 陣列（含圖片或錄音）
-function askGemini(input, system) {
+// 每一次呼叫 Gemini 都會帶上這條規則，所以六個階段的回覆、摘要、逐字稿都是繁體中文
+var TW_RULE = '一律使用繁體中文（台灣用語）。就算輸入的文字、圖片或錄音是簡體中文，輸出也要轉成繁體中文，不可以出現簡體字。';
+// 只有簡體中文才會用到的常見字（用編碼寫，這份程式碼本身才不會出現簡體字）
+var SIMPLIFIED = /[\u4eec\u8fd9\u8bf4\u5bf9\u65f6\u4f1a\u4e3a\u4e2a\u5b66\u8fc7\u8fd8\u53d1\u7ecf\u6837\u4e1c\u8f66\u95e8\u95ee\u5173\u89c1\u7535\u8bdd\u8bed\u8bf7\u8ba9\u5e94\u8be5\u4e66\u957f\u8bb0\u5f55\u8ba4\u8bc6\u8bbe\u8ba1\u52a8\u73b0\u5b9e\u9645\u9898\u95f4\u534e\u4e13\u4e1a\u56fe\u56fd\u6765\u5f00\u4ea7\u53d8\u603b\u7ed3\u7ed9\u5458\u89c2\u89c9\u8bb2\u8bfe\u7ec3\u4e60\u5c81\u533b\u836f\u8425\u517b\u996e\u8fd0\u56e2\u5e26\u4f20\u7edf\u62a5\u5907\u6742\u96be\u7b80\u5355\u538b\u70ed\u987b\u987a\u9884\u9886\u7c7b\u7ec6\u7ec4\u7ec7\u73af\u8282\u8c03\u8d28\u8d44\u8baf\u53f7\u7801\u8bc1\u6807\u8bc4\u68c0\u6d4b\u8bd5\u9a8c\u62a4\u9669\u72b6\u6001\u5904]/;
+
+function hasSimplified(text) {
+  return SIMPLIFIED.test(String(text));
+}
+
+// 文字裡有簡體字時，請 Gemini 轉成繁體；沒有簡體字就原樣回傳，不會多呼叫一次
+function toTraditional(text) {
+  text = String(text);
+  if (!hasSimplified(text)) return text;
+  try {
+    return askGemini('把下面文字裡的簡體字全部換成繁體字（台灣用語）。其他內容、標點、換行和格式一個字都不要改，只輸出轉換後的文字：\n\n' + text.slice(0, 12000), '', true) || text;
+  } catch (err) {
+    Logger.log('轉成繁體失敗，先保留原文：' + err.message);
+    return text;
+  }
+}
+
+// 把「筆記」工作表裡已經存成簡體的舊筆記轉成繁體。一次最多跑 4 分半鐘，沒跑完再執行一次
+function fixSimplified() {
+  var sh = notesSheet(), last = sh.getLastRow(), start = Date.now(), done = 0;
+  for (var r = 2; r <= last; r++) {
+    if (Date.now() - start > 270000) { Logger.log('時間快到了，請再執行一次 fixSimplified 接著做'); break; }
+    var changed = false;
+    [4, 5, 6, 8].forEach(function (c) {   // 標題、摘要、標籤、原文
+      var cell = sh.getRange(r, c), v = String(cell.getValues()[0][0]);
+      if (!hasSimplified(v)) return;
+      var t = toTraditional(v);
+      if (t !== v) { cell.setValue(t); changed = true; }
+    });
+    if (changed) done++;
+  }
+  Logger.log('這次把 ' + done + ' 則筆記轉成繁體');
+}
+
+// input 可以是一句話，也可以是 parts 陣列（含圖片或錄音）。keep＝true 代表不用再檢查簡體字（轉換本身會用到）
+function askGemini(input, system, keep) {
   var parts = typeof input === 'string' ? [{ text: input }] : input;
   var hasMedia = parts.some(function (p) { return p.inline_data; });
   var models = [MODEL].concat(BACKUP_MODELS.filter(function (m) { return m !== MODEL; }));
@@ -287,13 +327,13 @@ function askGemini(input, system) {
   try {
     answer = data.candidates[0].content.parts.map(function (p) { return p.text || ''; }).join('').trim();
   } catch (err) {}
-  if (answer) return answer;
+  if (answer) return keep ? answer : toTraditional(answer);
   throw new Error(explainError(data.error));
 }
 
 function callGemini(model, parts, system, fast) {
   var body = { contents: [{ role: 'user', parts: parts }] };
-  if (system) body.system_instruction = { parts: [{ text: system }] };
+  body.system_instruction = { parts: [{ text: (system ? system + '\n' : '') + TW_RULE }] };
   // lite 模型幾乎不思考；其他模型預設會先想一陣子，調低才回得快
   if (fast && model.indexOf('lite') < 0) body.generationConfig = { thinkingConfig: { thinkingLevel: 'low' } };
   var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {

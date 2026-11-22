@@ -50,8 +50,13 @@ function makeWorld() {
         if ((opt.headers || {})['x-goog-api-key'] !== 'TESTKEY') return resp(400, { error: { code: 400, message: 'API key not valid' } });
         const parts = body.contents[0].parts, text = parts.map(p => p.text || '').join('');
         const sys = body.system_instruction ? body.system_instruction.parts[0].text : '';
+        if (text.includes('換成繁體字')) {   // 假的簡轉繁：只換測試用到的幾個字
+          const map = { '这': '這', '个': '個', '动': '動', '对': '對', '长': '長', '说': '說', '话': '話', '时': '時', '间': '間', '记': '記', '录': '錄', '请': '請', '会': '會', '议': '議', '医': '醫', '学': '學', '练': '練', '习': '習' };
+          return gen(world.convertBroken ? '' : text.split('\n\n').slice(1).join('\n\n').replace(/./g, ch => map[ch] || ch));
+        }
+        if (world.simplifiedOnce) { const t = world.simplifiedOnce; world.simplifiedOnce = null; return gen(t); }
         if (sys.includes('私人秘書')) return gen(world.plan ? world.plan(text) : '{"action":"note"}');
-        if (parts.some(p => p.inline_data)) return gen(parts.find(p => p.inline_data).inline_data.mime_type.startsWith('audio') ? '今天帶長輩做音樂律動，大家很投入' : '手指操步驟：握拳、張開、對指');
+        if (parts.some(p => p.inline_data)) return gen(world.audioText || (parts.find(p => p.inline_data).inline_data.mime_type.startsWith('audio') ? '今天帶長輩做音樂律動，大家很投入' : '手指操步驟：握拳、張開、對指'));
         if (text.includes('只輸出一個 JSON')) {
           const content = text.split('內容：\n')[1] || '';
           const cat = content.includes('手') ? '教案點子' : content.includes('糖尿病') ? '研究文獻' : '不存在的類別';
@@ -395,6 +400,33 @@ lineEvent(c4, { type: 'file', id: 'f1', fileName: 'a.pdf' });
 ok(lastReply(w4).includes('只收文字') && w4.sent.files.length === 0, '還沒做階段 6 時，檔案訊息照舊說明不支援');
 lineEvent(c4, { type: 'text', id: 'f2', text: '筆記：只做階段 1 也能用 手' });
 ok(w4.sheets['筆記'].rows[1][7] === '只做階段 1 也能用 手' && !w4.sheets['待辦'], '還沒做階段 6 時，文字照舊存成筆記');
+
+console.log('繁體中文');
+const SIMP = c.SIMPLIFIED;
+ok(w.sent.gemini.length > 40 && w.sent.gemini.every(x => x.body.system_instruction && x.body.system_instruction.parts[0].text.includes('一律使用繁體中文（台灣用語）') && x.body.system_instruction.parts[0].text.includes('不可以出現簡體字')), '六個階段每一次呼叫 Gemini 都帶「一律使用繁體中文」的規則');
+ALL.concat(['Index']).forEach(f => { const src = fs.readFileSync(path.join(GAS, f + (f === 'Index' ? '.html' : '.gs')), 'utf8'); ok(!SIMP.test(src), f + ' 的程式碼和提示詞裡沒有簡體字'); });
+ok(c.hasSimplified('这个活动对长辈很好') && !c.hasSimplified('這個活動對長輩很好，在台灣的社區據點秘書群組') , '簡體字偵測：簡體抓得到，繁體不會誤判');
+const w5 = makeWorld(); const c5 = load(w5, ALL); c5.setup();
+w5.audioText = '这个活动对长者很好';
+lineEvent(c5, { type: 'audio', id: 't1' });
+ok(w5.sheets['筆記'].rows[1][7] === '這個活動對長者很好' && !SIMP.test(w5.sheets['筆記'].rows[1].join('')), '語音逐字稿是簡體時，自動轉成繁體才存');
+w5.audioText = null;
+w5.simplifiedOnce = '```json\n{"title":"说话的时间","summary":"记录会议","tags":["医学"],"category":"其他"}\n```';
+lineEvent(c5, { type: 'text', id: 't2', text: '筆記：開會心得' });
+ok(w5.sheets['筆記'].rows[2][3] === '說話的時間' && w5.sheets['筆記'].rows[2][4] === '記錄會議' && w5.sheets['筆記'].rows[2][5] === '醫學' && !SIMP.test(lastReply(w5)), 'AI 整理的標題、摘要、標籤是簡體時轉成繁體（JSON 結構不會壞），LINE 回覆也沒有簡體');
+let g5 = w5.sent.gemini.length;
+lineEvent(c5, { type: 'text', id: 't3', text: '筆記：全繁體的句子 手' });
+ok(w5.sent.gemini.length === g5 + 1, '沒有簡體字時不會多呼叫一次 AI');
+w5.g.UrlFetchApp.fetch = (orig => (url, opt) => url.startsWith('https://cn.example/') ? { getResponseCode: () => 200, getContentText: () => '<title>练习</title><p>请记录时间</p>' } : orig(url, opt))(w5.g.UrlFetchApp.fetch);
+const c6 = load(w5, ALL);
+lineEvent(c6, { type: 'text', id: 't4', text: 'https://cn.example/a' });
+ok(w5.sheets['筆記'].rows[4][7].includes('網頁標題：練習') && w5.sheets['筆記'].rows[4][7].includes('請記錄時間') && !SIMP.test(w5.sheets['筆記'].rows[4][7]), '簡體網站的內容轉成繁體才存進原文');
+w5.sheets['筆記'].rows.push([5, new Date(), '文字', '旧的说话', '摘要', '', '其他', '这是旧笔记', '']);
+c6.fixSimplified();
+ok(w5.sheets['筆記'].rows[5][3] === '旧的說話' && w5.sheets['筆記'].rows[5][7] === '這是旧笔記', 'fixSimplified 把已經存進去的舊筆記轉成繁體');
+w5.convertBroken = true; w5.audioText = '这个';
+lineEvent(c6, { type: 'audio', id: 't5' });
+ok(w5.sheets['筆記'].rows.length === 7 && lastReply(w5).includes('已存入'), '轉繁體失敗時筆記照樣存入，不會出錯');
 
 console.log('金鑰錯誤');
 const w3 = makeWorld(); const c3 = load(w3, ['Capture']);
