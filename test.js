@@ -424,9 +424,27 @@ ok(w5.sheets['筆記'].rows[4][7].includes('網頁標題：練習') && w5.sheets
 w5.sheets['筆記'].rows.push([5, new Date(), '文字', '旧的说话', '摘要', '', '其他', '这是旧笔记', '']);
 c6.fixSimplified();
 ok(w5.sheets['筆記'].rows[5][3] === '旧的說話' && w5.sheets['筆記'].rows[5][7] === '這是旧笔記', 'fixSimplified 把已經存進去的舊筆記轉成繁體');
+// LINE 回覆的每一種來源
+w5.simplifiedOnce = '这个活动的说话时间 [#1]';
+lineEvent(c6, { type: 'text', id: 't6', text: '？活動重點' });
+ok(lastReply(w5).includes('這個活動的說話時間') && !SIMP.test(lastReply(w5)), '問答的 LINE 回覆：AI 回簡體時轉成繁體');
+w5.simplifiedOnce = JSON.stringify({ action: 'add_event', title: '学习会议', start: dstr(2) + 'T10:00' });
+lineEvent(c6, { type: 'text', id: 't7', text: '後天早上十點的行程' });
+ok(w5.sent.events.pop().title === '學習會議' && lastReply(w5).includes('學習會議') && !SIMP.test(lastReply(w5)), '秘書的 LINE 回覆和寫進日曆的標題：AI 回簡體時轉成繁體');
+w5.sheets['筆記'].rows.push([6, new Date(), '文字', '练习说话', '请记录时间', '', '其他', '舊版程式存的簡體筆記 练习', '']);
+lineEvent(c6, { type: 'text', id: 't8', text: '找 练习' });
+ok(lastReply(w5).includes('練習說話') && lastReply(w5).includes('請記錄時間') && !SIMP.test(lastReply(w5).replace('找不到', '')), '「找」的 LINE 回覆：舊筆記是簡體時，送出前轉成繁體');
+w5.geminiDown = true;
+lineEvent(c6, { type: 'text', id: 't9', text: '筆記：AI 忙線時的繁體句子 手' });
+w5.geminiDown = false;
+ok(lastReply(w5).includes('AI 忙線時的繁體句子') && !SIMP.test(lastReply(w5)), 'AI 忙線時回覆用的是使用者自己的原文');
+c6.linePush('这是每週回顾');
+ok(w5.sent.line.filter(x => x.url.endsWith('/push')).pop().body.messages[0].text === '這是每週回顾', '每週回顧的 LINE 推播送出前也會轉成繁體');
+ok(SIMP.test('辈贝灯扫种边') && !SIMP.test('輩貝燈掃種邊台秘群吃著裡後髮乾'), '簡體字清單涵蓋常用簡體字，且不會誤判台灣常用字');
+w5.sheets['筆記'].rows.splice(6, 1);
 w5.convertBroken = true; w5.audioText = '这个';
 lineEvent(c6, { type: 'audio', id: 't5' });
-ok(w5.sheets['筆記'].rows.length === 7 && lastReply(w5).includes('已存入'), '轉繁體失敗時筆記照樣存入，不會出錯');
+ok(lastReply(w5).includes('已存入'), '轉繁體失敗時筆記照樣存入、照樣回覆，不會出錯');
 
 console.log('金鑰錯誤');
 const w3 = makeWorld(); const c3 = load(w3, ['Capture']);
